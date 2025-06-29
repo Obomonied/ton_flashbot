@@ -1,22 +1,28 @@
 import os
-from flask import Flask
-from telegram.ext import Updater, CommandHandler
+from flask import Flask, request
+from telegram import Update, Bot
+from telegram.ext import Dispatcher, CommandHandler, CallbackContext
 
 app = Flask(__name__)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN") or "PASTE_YOUR_BOT_TOKEN_HERE"
+bot = Bot(token=TOKEN)
+dispatcher = Dispatcher(bot, None, workers=0, use_context=True)
 
-def start(update, context):
-    update.message.reply_text("Bot is running!")
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("Webhook bot is running!")
 
-updater = Updater(BOT_TOKEN, use_context=True)
-dp = updater.dispatcher
-dp.add_handler(CommandHandler("start", start))
+dispatcher.add_handler(CommandHandler("start", start))
 
-@app.route('/')
-def index():
-    return 'Bot is alive!'
+@app.route(f"/webhook/{TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), bot)
+    dispatcher.process_update(update)
+    return "OK", 200
 
-if __name__ == '__main__':
-    updater.start_polling()
-    app.run(host='0.0.0.0', port=10000)
+@app.route("/")
+def home():
+    return "Bot is alive!", 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
